@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rita's Lateness Analyzer (Polars)</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f0f2f5; color: #1c1e21; display: flex; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; min-height: 100vh; }
+        .container { max-width: 900px; width: 100%; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        h1, h2 { color: #1877f2; text-align: center; }
+        h1 { font-size: 28px; margin-bottom: 20px; }
+        h2 { font-size: 22px; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #dddfe2; padding-bottom: 10px;}
+        p { line-height: 1.6; color: #333; }
+        img.overview-plot { max-width: 100%; height: auto; display: block; margin: 20px auto; border: 1px solid #ccd0d5; border-radius: 4px; }
+        .calculator-section { margin-top: 20px; padding: 20px; background-color: #f7f8fa; border: 1px solid #dddfe2; border-radius: 5px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #606770; }
+        input[type="time"] {
+            padding: 10px 12px;
+            margin-bottom: 15px;
+            border: 1px solid #ccd0d5;
+            border-radius: 6px;
+            width: calc(100% - 26px);
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 20px;
+            background-color: #1877f2;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+            transition: background-color 0.2s;
+            width: 100%;
+        }
+        button:hover { background-color: #166fe5; }
+        #resultArea {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e9f2ff;
+            border: 1px solid #b8d4ff;
+            border-radius: 6px;
+            min-height: 50px;
+            font-size: 1.1em;
+            text-align: center;
+        }
+        .result-late { color: #fa383e; font-weight: bold; }
+        .result-ontime { color: #31a24c; font-weight: bold; }
+        .error-message { color: #fa383e; font-weight: bold; }
+        .plot-missing, .loading-message { text-align: center; color: #606770; margin: 20px; font-style: italic; }
+        footer { margin-top: auto; padding: 15px; text-align: center; color: #606770; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Rita's Meeting Lateness Analyzer (Polars Version)</h1>
+
+        <h2>Overall Lateness Probability Plot</h2>
+        <p>The plot shows the probability (0 = on time, 1 = late) of Rita being late for her 9:05 AM meeting. The calculation is based on the official schedule of bus No. 8 (Zoo - Toompark) and fixed walking times (5 minutes to the bus stop, 4 minutes from the bus stop).</p>
+
+        {% if plot_image_filename %}
+    <img class="overview-plot" src="{{ url_for('static', filename=plot_image_filename) }}?v={{ plot_cache_buster }}" alt="Rita's lateness probability plot">
+{% else %}
+    <p class="plot-missing"><em>The overview plot was not generated. Please check server logs. The `gtfs.zip` file might be missing or there could be issues processing it.</em></p>
+{% endif %}
+
+        <div class="calculator-section">
+            <h2>Interactive Calculator</h2>
+            <label for="leaveTimeInput">Enter Rita's departure time from home:</label>
+            <input type="time" id="leaveTimeInput" name="leaveTimeInput" value="08:10" step="60">
+            <button id="calculateButton">Calculate</button>
+
+            <div id="resultArea">
+                <p class="loading-message">Enter a time and click "Calculate".</p>
+            </div>
+        </div>
+    </div>
+    <footer>
+        RMK Data Team Internship Challenge (Polars Version)
+    </footer>
+
+    <script>
+        const leaveTimeInput = document.getElementById('leaveTimeInput');
+        const calculateButton = document.getElementById('calculateButton');
+        const resultArea = document.getElementById('resultArea');
+
+        async function calculateLateness() {
+            const leaveTime = leaveTimeInput.value;
+
+            if (!leaveTime) {
+                resultArea.innerHTML = '<p class="error-message">Please enter a departure time.</p>';
+                return;
+            }
+
+            resultArea.innerHTML = '<p class="loading-message">Calculating...</p>';
+            calculateButton.disabled = true;
+
+            try {
+                const response = await fetch('/calculate', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ leave_time: leaveTime }),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    let resultClass = data.is_late ? 'result-late' : 'result-ontime';
+                    resultArea.innerHTML = `
+                        <p>If departing at <strong>${data.leave_time_processed}</strong>:</p>
+                        <p class="${resultClass}">${data.status_message}</p>
+                        <p><small>(Lateness probability: ${data.probability.toFixed(1)})</small></p>
+                    `;
+                } else {
+                    resultArea.innerHTML = `<p class="error-message">Error: ${data.error || 'Failed to get a response from the server.'}</p>`;
+                }
+            } catch (error) {
+                console.error('Error sending request:', error);
+                resultArea.innerHTML = '<p class="error-message">A network error occurred. Please try again later or check the browser console.</p>';
+            } finally {
+                calculateButton.disabled = false;
+            }
+        }
+
+        calculateButton.addEventListener('click', calculateLateness);
+        leaveTimeInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateLateness();
+            }
+        });
+    </script>
+</body>
+</html>
