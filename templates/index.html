@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rita's Lateness Analyzer (Polars)</title>
+    <title>Rita's Lateness Analyzer</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f0f2f5; color: #1c1e21; display: flex; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; min-height: 100vh; }
         .container { max-width: 900px; width: 100%; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.1); margin-bottom: 20px; }
@@ -12,14 +12,20 @@
         h2 { font-size: 22px; margin-top: 25px; margin-bottom: 15px; border-bottom: 1px solid #dddfe2; padding-bottom: 10px;}
         p { line-height: 1.6; color: #333; }
         img.overview-plot { max-width: 100%; height: auto; display: block; margin: 20px auto; border: 1px solid #ccd0d5; border-radius: 4px; }
-        .calculator-section { margin-top: 20px; padding: 20px; background-color: #f7f8fa; border: 1px solid #dddfe2; border-radius: 5px; }
+        .calculator-section, .schedule-section {
+            margin-top: 20px;
+            padding: 20px;
+            background-color: #f7f8fa;
+            border: 1px solid #dddfe2;
+            border-radius: 5px;
+        }
         label { display: block; margin-bottom: 8px; font-weight: 600; color: #606770; }
-        input[type="time"] {
+        input[type="time"], input[type="number"] {
             padding: 10px 12px;
             margin-bottom: 15px;
             border: 1px solid #ccd0d5;
             border-radius: 6px;
-            width: calc(100% - 26px);
+            width: 100%;
             font-size: 16px;
             box-sizing: border-box;
         }
@@ -48,46 +54,139 @@
         }
         .result-late { color: #fa383e; font-weight: bold; }
         .result-ontime { color: #31a24c; font-weight: bold; }
+        .result-uncertain { color: #ff9800; font-weight: bold; }
         .error-message { color: #fa383e; font-weight: bold; }
         .plot-missing, .loading-message { text-align: center; color: #606770; margin: 20px; font-style: italic; }
         footer { margin-top: auto; padding: 15px; text-align: center; color: #606770; font-size: 0.9em; }
+        .info-params {
+            font-size: 0.9em;
+            color: #606770;
+            margin-bottom: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-left: 3px solid #1877f2;
+        }
+        .schedule-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        .schedule-table th, .schedule-table td {
+            border: 1px solid #dddfe2;
+            padding: 8px 12px;
+            text-align: center;
+            font-size: 0.95em;
+        }
+        .schedule-table th {
+            background-color: #e9ecef;
+            color: #495057;
+            font-weight: 600;
+        }
+        .schedule-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .input-hint { font-size: 0.85em; color: #606770; margin-top: -10px; margin-bottom: 15px; display: block; }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Rita's Meeting Lateness Analyzer (Polars Version)</h1>
+        <h1>Rita's Meeting Lateness Analyzer</h1>
 
-        <h2>Overall Lateness Probability Plot</h2>
-        <p>The plot shows the probability (0 = on time, 1 = late) of Rita being late for her 9:05 AM meeting. The calculation is based on the official schedule of bus No. 8 (Zoo - Toompark) and fixed walking times (5 minutes to the bus stop, 4 minutes from the bus stop).</p>
-
-        {% if plot_image_filename %}
-    <img class="overview-plot" src="{{ url_for('static', filename=plot_image_filename) }}?v={{ plot_cache_buster }}" alt="Rita's lateness probability plot">
-{% else %}
-    <p class="plot-missing"><em>The overview plot was not generated. Please check server logs. The `gtfs.zip` file might be missing or there could be issues processing it.</em></p>
-{% endif %}
+        <div class="info-params">
+            <strong>Parameters:</strong>
+            Meeting at {{ meeting_time_str }}.
+            Walk home to Zoo: {{ "%.1f"|format(walk_home_to_zoo_min) }} min.
+            Walk Toompark to meeting: {{ "%.1f"|format(walk_toompark_to_meeting_min) }} min.
+            Bus: No. {{ bus_route }} ({{ departure_stop }} → {{ arrival_stop }}).
+            {% if not schedules_loaded %}
+                <br><strong style="color:red;">Warning: Bus schedules could not be loaded. Calculations may be inaccurate.</strong>
+            {% endif %}
+        </div>
 
         <div class="calculator-section">
             <h2>Interactive Calculator</h2>
-            <label for="leaveTimeInput">Enter Rita's departure time from home:</label>
+            <label for="leaveTimeInput">Rita's departure time from home:</label>
             <input type="time" id="leaveTimeInput" name="leaveTimeInput" value="08:10" step="60">
-            <button id="calculateButton">Calculate</button>
+
+            <label for="busDelayAtZooInput">Bus No. {{ bus_route }} potential delay BEFORE departure from {{ departure_stop }} (minutes):</label>
+            <input type="number" id="busDelayAtZooInput" name="busDelayAtZooInput" value="0" min="0" max="15" step="1">
+            <small class="input-hint">How late the bus might leave the {{ departure_stop }} stop. (0-15 min)</small>
+
+            <label for="busDelayEnRouteInput">Bus No. 8 potential delay AFTER departure from Zoo (minutes):</label>
+            <input type="number" id="busDelayEnRouteInput" name="busDelayEnRouteInput" value="0" min="0" max="15" step="1">
+            <small class="input-hint">Extra delay after leaving {{ departure_stop }}. (0-15 min)</small>
+
+
+            <button id="calculateButton">Calculate Lateness</button>
 
             <div id="resultArea">
-                <p class="loading-message">Enter a time and click "Calculate".</p>
+                <p class="loading-message">Enter time, specify bus delays, and click "Calculate".</p>
             </div>
         </div>
+
+        <div class="schedule-section">
+            <h2>Bus No. {{ bus_route }} Schedule ({{ departure_stop }} → {{ arrival_stop }})</h2>
+            <p>Showing departures up to approximately {{ "%02d:%02d" | format(config.DISPLAY_SCHEDULE_UNTIL_HOUR, config.DISPLAY_SCHEDULE_UNTIL_MINUTE) }}. These are scheduled times.</p>
+            {% if bus_schedules_for_display %}
+                <table class="schedule-table">
+                    <thead>
+                        <tr>
+                            <th>Departs from {{ departure_stop }} (Scheduled)</th>
+                            <th>Arrives at {{ arrival_stop }} (Scheduled)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for schedule_item in bus_schedules_for_display %}
+                        <tr>
+                            <td>{{ schedule_item.departure_zoo }}</td>
+                            <td>{{ schedule_item.arrival_toompark }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% elif schedules_loaded %}
+                <p><em>No bus departures found in the specified time range.</em></p>
+            {% else %}
+                <p><em>Bus schedule data is not available.</em></p>
+            {% endif %}
+        </div>
+
+        <h2>Overall Lateness Probability Plot</h2>
+        <p>The plot shows the probability of Rita being late, <strong>assuming buses are perfectly on time (no delays)</strong>. Use the interactive calculator for scenarios with delays.</p>
+        {% if plot_image_filename %}
+            <img class="overview-plot" src="{{ url_for('static', filename=plot_image_filename) }}?v={{ plot_cache_buster }}" alt="Rita's lateness probability plot (buses on time)">
+        {% else %}
+            <p class="plot-missing"><em>The overview plot was not generated. Please check server logs.</em></p>
+        {% endif %}
+
     </div>
-    <footer>
-        RMK Data Team Internship Challenge (Polars Version)
-    </footer>
 
     <script>
         const leaveTimeInput = document.getElementById('leaveTimeInput');
+        const busDelayAtZooInput = document.getElementById('busDelayAtZooInput');
+        const busDelayEnRouteInput = document.getElementById('busDelayEnRouteInput'); // Новый input
         const calculateButton = document.getElementById('calculateButton');
         const resultArea = document.getElementById('resultArea');
 
+        function validateNumericInput(inputElement, minVal = 0, maxVal = 15) {
+            let value = parseInt(inputElement.value, 10);
+            if (isNaN(value) || value < minVal) {
+                inputElement.value = minVal;
+                value = minVal;
+            } else if (value > maxVal) {
+                inputElement.value = maxVal;
+                value = maxVal;
+            }
+            return value;
+        }
+
+
         async function calculateLateness() {
             const leaveTime = leaveTimeInput.value;
+
+            const maxBusDelayAtZooMinutes = validateNumericInput(busDelayAtZooInput);
+            const maxBusDelayEnRouteMinutes = validateNumericInput(busDelayEnRouteInput);
+
 
             if (!leaveTime) {
                 resultArea.innerHTML = '<p class="error-message">Please enter a departure time.</p>';
@@ -96,6 +195,7 @@
 
             resultArea.innerHTML = '<p class="loading-message">Calculating...</p>';
             calculateButton.disabled = true;
+            calculateButton.textContent = 'Calculating...';
 
             try {
                 const response = await fetch('/calculate', {
@@ -103,36 +203,63 @@
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ leave_time: leaveTime }),
+                    body: JSON.stringify({
+                        leave_time: leaveTime,
+                        max_bus_delay_at_zoo_minutes: maxBusDelayAtZooMinutes,
+                        max_bus_delay_en_route_minutes: maxBusDelayEnRouteMinutes
+                    }),
                 });
 
                 const data = await response.json();
 
                 if (response.ok) {
-                    let resultClass = data.is_late ? 'result-late' : 'result-ontime';
+                    let resultClass = '';
+                    let displayedProbability = data.probability;
+
+                    if (maxBusDelayAtZooMinutes === 0 && maxBusDelayEnRouteMinutes === 0) {
+                        resultClass = (displayedProbability === 1.0) ? 'result-late' : 'result-ontime';
+                    } else {
+                        if (displayedProbability >= 0.75) resultClass = 'result-late';
+                        else if (displayedProbability >= 0.25) resultClass = 'result-uncertain';
+                        else resultClass = 'result-ontime';
+                    }
+
                     resultArea.innerHTML = `
-                        <p>If departing at <strong>${data.leave_time_processed}</strong>:</p>
+                        <p>Departing from home at <strong>${data.leave_time_processed}</strong></p>
+                        <p>Bus No. 8 potential delay BEFORE departure from Zoo: up to <strong>${maxBusDelayAtZooMinutes} min</strong></p>
+                        <p>Bus No. 8 potential delay AFTER departure from Zoo: up to <strong>${maxBusDelayEnRouteMinutes} min</strong></p>
                         <p class="${resultClass}">${data.status_message}</p>
-                        <p><small>(Lateness probability: ${data.probability.toFixed(1)})</small></p>
+                        <p><small>(Calculated P(Late): ${(displayedProbability * 100).toFixed(1)}%)</small></p>
                     `;
                 } else {
                     resultArea.innerHTML = `<p class="error-message">Error: ${data.error || 'Failed to get a response from the server.'}</p>`;
                 }
             } catch (error) {
                 console.error('Error sending request:', error);
-                resultArea.innerHTML = '<p class="error-message">A network error occurred. Please try again later or check the browser console.</p>';
+                resultArea.innerHTML = '<p class="error-message">A network error occurred. Please try again or check browser console.</p>';
             } finally {
                 calculateButton.disabled = false;
+                calculateButton.textContent = 'Calculate Lateness';
             }
         }
 
         calculateButton.addEventListener('click', calculateLateness);
-        leaveTimeInput.addEventListener('keypress', function(event) {
-            if (event.key === 'Enter') {
-                event.preventDefault();
+        leaveTimeInput.addEventListener('keypress', function(event) { if (event.key === 'Enter') { event.preventDefault(); calculateLateness(); }});
+
+        [busDelayAtZooInput, busDelayEnRouteInput].forEach(input => {
+            input.addEventListener('change', () => {
+                validateNumericInput(input);
                 calculateLateness();
-            }
+            });
+            input.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    validateNumericInput(input);
+                    calculateLateness();
+                }
+            });
         });
+
     </script>
 </body>
 </html>
