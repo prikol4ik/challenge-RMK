@@ -69,7 +69,6 @@ The application uses data in the GTFS (General Transit Feed Specification) forma
     ```
 
 3.  **Install dependencies:**
-    Execute:
     ```bash
     pip install -r requirements.txt
     ```
