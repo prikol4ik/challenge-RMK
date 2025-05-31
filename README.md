@@ -61,7 +61,7 @@ The application uses data in the GTFS (General Transit Feed Specification) forma
 
 2.  **Create and activate a virtual environment (recommended):**
     ```bash
-    python -m venv venv
+    python3 -m venv venv
     # Windows
     venv\Scripts\activate
     # macOS/Linux
