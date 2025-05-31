@@ -413,7 +413,7 @@ def generate_overview_plot_and_save(
     base_date = meeting_dt.date()
 
     # Define the time range for plotting departure times from home
-    plot_end_dt = datetime.combine(base_date, meeting_dt.time()) - timedelta(minutes=5)  # Sensible upper limit
+    plot_end_dt = datetime.combine(base_date, meeting_dt.time()) - timedelta(minutes=5)
     plot_start_dt = max(datetime.combine(base_date, time(6, 0)), plot_end_dt - timedelta(hours=2, minutes=30))
 
     departure_times_for_plot = []
@@ -421,7 +421,6 @@ def generate_overview_plot_and_save(
 
     current_sim_dt = plot_start_dt
     while current_sim_dt <= plot_end_dt:
-        # For this overview plot, calculate lateness assuming NO bus delays
         prob = calculate_single_lateness(
             current_sim_dt.strftime("%H:%M:%S"),
             bus_schedules,
@@ -434,7 +433,7 @@ def generate_overview_plot_and_save(
         if prob != -1.0:
             departure_times_for_plot.append(current_sim_dt)
             probabilities_for_plot.append(prob)
-        current_sim_dt += timedelta(minutes=1)  # Increment by 1 minute for plot granularity
+        current_sim_dt += timedelta(minutes=1)
 
     if not departure_times_for_plot:
         app.logger.warning("No data points generated for the overview plot.")
@@ -445,20 +444,20 @@ def generate_overview_plot_and_save(
     plt.plot(departure_times_for_plot, probabilities_for_plot, marker='.', linestyle='-', drawstyle='steps-post')
 
     plt.gca().xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
-    plt.gca().xaxis.set_major_locator(mdates.MinuteLocator(byminute=range(0, 60, 15)))  # Ticks every 15 mins
-    plt.gcf().autofmt_xdate()  # Auto-rotate date labels for readability
+    plt.gca().xaxis.set_major_locator(mdates.MinuteLocator(byminute=range(0, 60, 15)))
+    plt.gcf().autofmt_xdate()
 
     plt.title(f"Rita's Lateness Probability (Meeting at {MEETING_TIME_STR}, Ideal Bus Conditions)")
     plt.xlabel("Departure Time from Home")
     plt.ylabel("P(Late for Meeting)")
-    plt.yticks([0, 1], ['On Time', 'Late'])  # Probability is binary (0 or 1) for no-delay scenario
-    plt.ylim(-0.1, 1.1)  # Add some padding to y-axis
+    plt.yticks([0, 1], ['On Time', 'Late'])
+    plt.ylim(-0.1, 1.1)
     plt.grid(True, which='major', axis='y', linestyle='--', linewidth=0.7)
     plt.grid(True, which='major', axis='x', linestyle=':', linewidth=0.5)
-    plt.tight_layout()  # Adjust plot to ensure everything fits without overlapping
+    plt.tight_layout()
 
     try:
-        os.makedirs(os.path.dirname(plot_save_path), exist_ok=True)  # Ensure static directory exists
+        os.makedirs(os.path.dirname(plot_save_path), exist_ok=True)
         plt.savefig(plot_save_path)
         app.logger.info(f"Overview plot saved to {plot_save_path}")
         return True
@@ -466,7 +465,7 @@ def generate_overview_plot_and_save(
         app.logger.error(f"Failed to save overview plot: {e}")
         return False
     finally:
-        plt.close()  # Close the plot figure to free up memory
+        plt.close()
 
 
 def initialize_app_data():
@@ -496,7 +495,6 @@ def initialize_app_data():
                     "arrival_toompark": format_timedelta_to_time_str(arr_td)
                 })
 
-    # Set the meeting datetime object for today
     app_load_date = datetime.now().date()
     try:
         meeting_time_obj = time.fromisoformat(MEETING_TIME_STR)
@@ -565,7 +563,7 @@ def calculate_api():
     if MEETING_DATETIME_OBJ is None:
         app.logger.error("Meeting datetime object is not initialized. Cannot perform calculation.")
         return jsonify({
-                           'error': 'Server configuration error: Meeting time not set. Please check server logs.'}), 503  # Service Unavailable
+                           'error': 'Server configuration error: Meeting time not set. Please check server logs.'}), 503
     if not BUS_SCHEDULES_TD:
         app.logger.error("Bus schedules are not loaded. Cannot perform calculation.")
         return jsonify({'error': 'Server error: Bus schedule data unavailable. Please check server logs.'}), 503
@@ -584,7 +582,10 @@ def calculate_api():
     prob_percent = probability * 100
     status_msg = ""
     if delay_zoo_min == 0 and delay_route_min == 0:  # Deterministic case
-        status_msg = "Rita will be LATE." if probability == 1.0 else "Rita will be ON TIME."
+        if probability == 1.0:
+            status_msg = f"Rita will be LATE (P(Late) = {prob_percent:.0f}%)."
+        else:
+            status_msg = f"Rita will be ON TIME (P(Late) = {prob_percent:.0f}%)."
     else:
         if probability >= 0.99:
             status_msg = f"Rita will almost certainly be LATE (P(Late) = {prob_percent:.0f}%)."

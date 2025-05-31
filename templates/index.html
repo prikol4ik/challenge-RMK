@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rita's Lateness Analyzer</title>
     <style>
-        /* Basic styling for the page */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f0f2f5; color: #1c1e21; display: flex; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; min-height: 100vh; }
         .container { max-width: 900px; width: 100%; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.1); margin-bottom: 20px; }
         h1, h2 { color: #1877f2; text-align: center; }
@@ -43,7 +42,7 @@
             width: 100%;
         }
         button:hover { background-color: #166fe5; }
-        #resultArea { /* Area to display calculation results */
+        #resultArea {
             margin-top: 20px;
             padding: 15px;
             background-color: #e9f2ff;
@@ -53,14 +52,13 @@
             font-size: 1.1em;
             text-align: center;
         }
-        /* Styling for result messages */
         .result-late { color: #fa383e; font-weight: bold; }
         .result-ontime { color: #31a24c; font-weight: bold; }
         .result-uncertain { color: #ff9800; font-weight: bold; }
         .error-message { color: #fa383e; font-weight: bold; }
         .plot-missing, .loading-message { text-align: center; color: #606770; margin: 20px; font-style: italic; }
         footer { margin-top: auto; padding: 15px; text-align: center; color: #606770; font-size: 0.9em; }
-        .info-params { /* Section displaying fixed parameters of the scenario */
+        .info-params {
             font-size: 0.9em;
             color: #606770;
             margin-bottom: 15px;
@@ -68,7 +66,7 @@
             background-color: #f9f9f9;
             border-left: 3px solid #1877f2;
         }
-        .schedule-table { /* Styling for the bus schedule table */
+        .schedule-table {
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
@@ -104,11 +102,11 @@
         <!-- Section displaying the fixed parameters of Rita's commute -->
         <div class="info-params">
             <strong>Parameters:</strong>
-            Meeting at {{ meeting_time_str }}. <!-- Meeting time from Flask context -->
-            Walk home to Zoo: {{ "%.1f"|format(walk_home_to_zoo_min) }} min. <!-- Walking time from Flask context -->
-            Walk Toompark to meeting: {{ "%.1f"|format(walk_toompark_to_meeting_min) }} min. <!-- Walking time from Flask context -->
-            Bus: No. {{ bus_route }} ({{ departure_stop }} → {{ arrival_stop }}). <!-- Bus route info from Flask context -->
-            {% if not schedules_loaded %} <!-- Conditional warning if bus schedules failed to load -->
+            Meeting at {{ meeting_time_str }}.
+            Walk home to Zoo: {{ "%.1f"|format(walk_home_to_zoo_min) }} min.
+            Walk Toompark to meeting: {{ "%.1f"|format(walk_toompark_to_meeting_min) }} min.
+            Bus: No. {{ bus_route }} ({{ departure_stop }} → {{ arrival_stop }}).
+            {% if not schedules_loaded %}
                 <br><strong style="color:red;">Warning: Bus schedules could not be loaded. Calculations may be inaccurate.</strong>
             {% endif %}
         </div>
@@ -126,12 +124,12 @@
             </small>
 
             <label for="busDelayEnRouteInput">Max. potential bus No. {{ bus_route }} delay AFTER departure from {{ departure_stop }} (minutes):</label>
-            <input type="number" id="busDelayEnRouteInput" name="busDelayEnRouteInput" value="0" min="0" max="15" step="1"> <!-- Input for max delay en route -->
+            <input type="number" id="busDelayEnRouteInput" name="busDelayEnRouteInput" value="0" min="0" max="15" step="1">
             <small class="input-hint">
                 Enter the <strong>maximum</strong> additional travel time. The actual simulated delay will be a random value <strong>between 0 and this number</strong> of minutes.<br>(0-15 min)
             </small>
 
-            <button id="calculateButton">Calculate Lateness</button> <!-- Button to trigger calculation -->
+            <button id="calculateButton">Calculate Lateness</button>
 
             <div id="resultArea"> <!-- Area where calculation results are displayed by JavaScript -->
                 <p class="loading-message">Enter time, specify bus delays, and click "Calculate".</p>
@@ -179,7 +177,7 @@
     </div>
 
     <footer>
-        <p>© {{ SCRIPT_START_TIME.year if SCRIPT_START_TIME else "2024" }} Lateness Analysis Tool. For demonstration purposes.</p>
+        <p>© Rita's Lateness Analyzer - RMK Data Team Internship Challenge (2025) Solution </p>
     </footer>
 
     <script>
@@ -243,7 +241,7 @@
                     }),
                 });
 
-                const data = await response.json(); // Parse JSON response
+                const data = await response.json();
 
                 if (response.ok) {
                     let resultClass = '';
@@ -264,7 +262,6 @@
                         <p>Bus No. 8 potential delay BEFORE departure from Zoo: up to <strong>${maxBusDelayAtZooMinutes} min</strong></p>
                         <p>Bus No. 8 potential delay AFTER departure from Zoo: up to <strong>${maxBusDelayEnRouteMinutes} min</strong></p>
                         <p class="${resultClass}">${data.status_message}</p>
-                        <p><small>(Calculated P(Late): ${(displayedProbability * 100).toFixed(1)}%)</small></p>
                     `;
                 } else {
                     resultArea.innerHTML = `<p class="error-message">Error: ${data.error || 'Failed to get a response from the server.'}</p>`;
@@ -287,7 +284,6 @@
             }
         });
 
-        // Add event listeners to delay input fields to auto-recalculate on change or Enter press
         [busDelayAtZooInput, busDelayEnRouteInput].forEach(input => {
             input.addEventListener('change', () => {
                 validateNumericInput(input);
@@ -301,13 +297,6 @@
             });
         });
 
-        if (typeof SCRIPT_START_TIME === 'undefined') {
-            const SCRIPT_START_TIME = new Date();
-            const footerP = document.querySelector("footer p");
-            if (footerP && footerP.textContent.includes("SCRIPT_START_TIME.year")) {
-                 footerP.textContent = footerP.textContent.replace("SCRIPT_START_TIME.year", SCRIPT_START_TIME.getFullYear());
-            }
-        }
     </script>
 </body>
 </html>
