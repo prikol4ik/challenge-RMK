@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Rita's Lateness Analyzer</title>
     <style>
+        /* Basic styling for the page */
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; margin: 0; background-color: #f0f2f5; color: #1c1e21; display: flex; flex-direction: column; align-items: center; padding: 20px; box-sizing: border-box; min-height: 100vh; }
         .container { max-width: 900px; width: 100%; background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1), 0 8px 16px rgba(0,0,0,0.1); margin-bottom: 20px; }
         h1, h2 { color: #1877f2; text-align: center; }
@@ -42,7 +43,7 @@
             width: 100%;
         }
         button:hover { background-color: #166fe5; }
-        #resultArea {
+        #resultArea { /* Area to display calculation results */
             margin-top: 20px;
             padding: 15px;
             background-color: #e9f2ff;
@@ -52,13 +53,14 @@
             font-size: 1.1em;
             text-align: center;
         }
+        /* Styling for result messages */
         .result-late { color: #fa383e; font-weight: bold; }
         .result-ontime { color: #31a24c; font-weight: bold; }
         .result-uncertain { color: #ff9800; font-weight: bold; }
         .error-message { color: #fa383e; font-weight: bold; }
         .plot-missing, .loading-message { text-align: center; color: #606770; margin: 20px; font-style: italic; }
         footer { margin-top: auto; padding: 15px; text-align: center; color: #606770; font-size: 0.9em; }
-        .info-params {
+        .info-params { /* Section displaying fixed parameters of the scenario */
             font-size: 0.9em;
             color: #606770;
             margin-bottom: 15px;
@@ -66,7 +68,7 @@
             background-color: #f9f9f9;
             border-left: 3px solid #1877f2;
         }
-        .schedule-table {
+        .schedule-table { /* Styling for the bus schedule table */
             width: 100%;
             border-collapse: collapse;
             margin-top: 15px;
@@ -85,48 +87,62 @@
         .schedule-table tr:nth-child(even) {
             background-color: #f8f9fa;
         }
-        .input-hint { font-size: 0.85em; color: #606770; margin-top: -10px; margin-bottom: 15px; display: block; }
+        .input-hint {
+            font-size: 0.85em;
+            color: #606770;
+            margin-top: -10px;
+            margin-bottom: 15px;
+            display: block;
+        }
     </style>
 </head>
 <body>
+    <!-- Main container for the application content -->
     <div class="container">
         <h1>Rita's Meeting Lateness Analyzer</h1>
 
+        <!-- Section displaying the fixed parameters of Rita's commute -->
         <div class="info-params">
             <strong>Parameters:</strong>
-            Meeting at {{ meeting_time_str }}.
-            Walk home to Zoo: {{ "%.1f"|format(walk_home_to_zoo_min) }} min.
-            Walk Toompark to meeting: {{ "%.1f"|format(walk_toompark_to_meeting_min) }} min.
-            Bus: No. {{ bus_route }} ({{ departure_stop }} → {{ arrival_stop }}).
-            {% if not schedules_loaded %}
+            Meeting at {{ meeting_time_str }}. <!-- Meeting time from Flask context -->
+            Walk home to Zoo: {{ "%.1f"|format(walk_home_to_zoo_min) }} min. <!-- Walking time from Flask context -->
+            Walk Toompark to meeting: {{ "%.1f"|format(walk_toompark_to_meeting_min) }} min. <!-- Walking time from Flask context -->
+            Bus: No. {{ bus_route }} ({{ departure_stop }} → {{ arrival_stop }}). <!-- Bus route info from Flask context -->
+            {% if not schedules_loaded %} <!-- Conditional warning if bus schedules failed to load -->
                 <br><strong style="color:red;">Warning: Bus schedules could not be loaded. Calculations may be inaccurate.</strong>
             {% endif %}
         </div>
 
+        <!-- Section for the interactive lateness calculator -->
         <div class="calculator-section">
             <h2>Interactive Calculator</h2>
             <label for="leaveTimeInput">Rita's departure time from home:</label>
-            <input type="time" id="leaveTimeInput" name="leaveTimeInput" value="08:10" step="60">
+            <input type="time" id="leaveTimeInput" name="leaveTimeInput" value="08:10" step="60"> <!-- Time input for departure, step is 60s (1 min) -->
 
-            <label for="busDelayAtZooInput">Bus No. {{ bus_route }} potential delay BEFORE departure from {{ departure_stop }} (minutes):</label>
-            <input type="number" id="busDelayAtZooInput" name="busDelayAtZooInput" value="0" min="0" max=15 step="1">
-            <small class="input-hint">How late the bus might leave the {{ departure_stop }} stop. (0-15 min)</small>
+            <label for="busDelayAtZooInput">Max. potential bus No. {{ bus_route }} delay BEFORE departure from {{ departure_stop }} (minutes):</label>
+            <input type="number" id="busDelayAtZooInput" name="busDelayAtZooInput" value="0" min="0" max="15" step="1"> <!-- Input for max delay at departure stop -->
+            <small class="input-hint">
+                Enter the <strong>maximum</strong> expected delay. The actual simulated delay will be a random value <strong>between 0 and this number</strong> of minutes.<br>(0-15 min)
+            </small>
 
-            <label for="busDelayEnRouteInput">Bus No. 8 potential delay AFTER departure from Zoo (minutes):</label>
-            <input type="number" id="busDelayEnRouteInput" name="busDelayEnRouteInput" value="0" min="0" max="15" step="1">
-            <small class="input-hint">Extra delay after leaving {{ departure_stop }}. (0-15 min)</small>
+            <label for="busDelayEnRouteInput">Max. potential bus No. {{ bus_route }} delay AFTER departure from {{ departure_stop }} (minutes):</label>
+            <input type="number" id="busDelayEnRouteInput" name="busDelayEnRouteInput" value="0" min="0" max="15" step="1"> <!-- Input for max delay en route -->
+            <small class="input-hint">
+                Enter the <strong>maximum</strong> additional travel time. The actual simulated delay will be a random value <strong>between 0 and this number</strong> of minutes.<br>(0-15 min)
+            </small>
 
+            <button id="calculateButton">Calculate Lateness</button> <!-- Button to trigger calculation -->
 
-            <button id="calculateButton">Calculate Lateness</button>
-
-            <div id="resultArea">
+            <div id="resultArea"> <!-- Area where calculation results are displayed by JavaScript -->
                 <p class="loading-message">Enter time, specify bus delays, and click "Calculate".</p>
             </div>
         </div>
 
+        <!-- Section displaying the relevant bus schedule -->
         <div class="schedule-section">
             <h2>Bus No. {{ bus_route }} Schedule ({{ departure_stop }} → {{ arrival_stop }})</h2>
             <p>Showing departures up to approximately {{ "%02d:%02d" | format(config.DISPLAY_SCHEDULE_UNTIL_HOUR, config.DISPLAY_SCHEDULE_UNTIL_MINUTE) }}. These are scheduled times.</p>
+
             {% if bus_schedules_for_display %}
                 <table class="schedule-table">
                     <thead>
@@ -151,6 +167,7 @@
             {% endif %}
         </div>
 
+        <!-- Section displaying the overview plot -->
         <h2>Overall Lateness Probability Plot</h2>
         <p>The plot shows the probability of Rita being late, <strong>assuming buses are perfectly on time (no delays)</strong>. Use the interactive calculator for scenarios with delays.</p>
         {% if plot_image_filename %}
@@ -161,13 +178,26 @@
 
     </div>
 
+    <footer>
+        <p>© {{ SCRIPT_START_TIME.year if SCRIPT_START_TIME else "2024" }} Lateness Analysis Tool. For demonstration purposes.</p>
+    </footer>
+
     <script>
+        // JavaScript for interactive calculator functionality
         const leaveTimeInput = document.getElementById('leaveTimeInput');
         const busDelayAtZooInput = document.getElementById('busDelayAtZooInput');
-        const busDelayEnRouteInput = document.getElementById('busDelayEnRouteInput'); // Новый input
+        const busDelayEnRouteInput = document.getElementById('busDelayEnRouteInput');
         const calculateButton = document.getElementById('calculateButton');
         const resultArea = document.getElementById('resultArea');
 
+        /**
+         * Validates a numeric input field, ensuring its value is within a specified range.
+         * If the value is outside the range or not a number, it's corrected.
+         * @param {HTMLInputElement} inputElement - The input element to validate.
+         * @param {number} [minVal=0] - The minimum allowed value.
+         * @param {number} [maxVal=15] - The maximum allowed value.
+         * @returns {number} The validated (and potentially corrected) integer value.
+         */
         function validateNumericInput(inputElement, minVal = 0, maxVal = 15) {
             let value = parseInt(inputElement.value, 10);
             if (isNaN(value) || value < minVal) {
@@ -180,13 +210,16 @@
             return value;
         }
 
-
+        /**
+         * Asynchronously calculates lateness by sending data to the '/calculate' API endpoint.
+         * Gathers user inputs for departure time and maximum bus delays,
+         * sends them to the server, and displays the server's response (probability and status message).
+         */
         async function calculateLateness() {
             const leaveTime = leaveTimeInput.value;
 
             const maxBusDelayAtZooMinutes = validateNumericInput(busDelayAtZooInput);
             const maxBusDelayEnRouteMinutes = validateNumericInput(busDelayEnRouteInput);
-
 
             if (!leaveTime) {
                 resultArea.innerHTML = '<p class="error-message">Please enter a departure time.</p>';
@@ -210,12 +243,13 @@
                     }),
                 });
 
-                const data = await response.json();
+                const data = await response.json(); // Parse JSON response
 
                 if (response.ok) {
                     let resultClass = '';
                     let displayedProbability = data.probability;
 
+                    // Determine result class based on probability and whether delays were simulated
                     if (maxBusDelayAtZooMinutes === 0 && maxBusDelayEnRouteMinutes === 0) {
                         resultClass = (displayedProbability === 1.0) ? 'result-late' : 'result-ontime';
                     } else {
@@ -224,6 +258,7 @@
                         else resultClass = 'result-ontime';
                     }
 
+                    // Display the formatted result from the server
                     resultArea.innerHTML = `
                         <p>Departing from home at <strong>${data.leave_time_processed}</strong></p>
                         <p>Bus No. 8 potential delay BEFORE departure from Zoo: up to <strong>${maxBusDelayAtZooMinutes} min</strong></p>
@@ -244,12 +279,18 @@
         }
 
         calculateButton.addEventListener('click', calculateLateness);
-        leaveTimeInput.addEventListener('keypress', function(event) { if (event.key === 'Enter') { event.preventDefault(); calculateLateness(); }});
 
+        leaveTimeInput.addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateLateness();
+            }
+        });
+
+        // Add event listeners to delay input fields to auto-recalculate on change or Enter press
         [busDelayAtZooInput, busDelayEnRouteInput].forEach(input => {
             input.addEventListener('change', () => {
                 validateNumericInput(input);
-                calculateLateness();
             });
             input.addEventListener('keypress', function(event) {
                 if (event.key === 'Enter') {
@@ -260,6 +301,13 @@
             });
         });
 
+        if (typeof SCRIPT_START_TIME === 'undefined') {
+            const SCRIPT_START_TIME = new Date();
+            const footerP = document.querySelector("footer p");
+            if (footerP && footerP.textContent.includes("SCRIPT_START_TIME.year")) {
+                 footerP.textContent = footerP.textContent.replace("SCRIPT_START_TIME.year", SCRIPT_START_TIME.getFullYear());
+            }
+        }
     </script>
 </body>
 </html>
