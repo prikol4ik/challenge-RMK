@@ -44,8 +44,6 @@ This project is built using the following technologies:
 The application uses data in the GTFS (General Transit Feed Specification) format.
 *   **Specification for the Estonian National Public Transport Register (source for GTFS data):** [Ühistranspordiregister - Avaandmed spetsifikatsioon v1.4](https://www.agri.ee/sites/default/files/documents/2023-07/%C3%BChistranspordiregister-avaandmed-spetsifikatsioon-v1_4.pdf)
 
-**Important:** For the application to work, you need to download current GTFS data for Tallinn (or another region of interest that adheres to the specification) and place it in the `gtfs/` folder. The data must include at least the following files: `stops.txt`, `routes.txt`, `trips.txt`, `stop_times.txt`, `calendar.txt`.
-
 ## Installation and Setup
 
 ### Prerequisites
@@ -57,13 +55,13 @@ The application uses data in the GTFS (General Transit Feed Specification) forma
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository_URL>
-    cd <repository_folder_name>
+    git clone https://github.com/prikol4ik/challenge-RMK
+    cd challenge-RMK
     ```
 
 2.  **Create and activate a virtual environment (recommended):**
     ```bash
-    python -m venv venv
+    python3 -m venv venv
     # Windows
     venv\Scripts\activate
     # macOS/Linux
@@ -71,13 +69,6 @@ The application uses data in the GTFS (General Transit Feed Specification) forma
     ```
 
 3.  **Install dependencies:**
-    Create a `requirements.txt` file with the following content:
-    ```txt
-    Flask
-    polars
-    matplotlib
-    ```
-    Then execute:
     ```bash
     pip install -r requirements.txt
     ```
