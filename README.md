@@ -55,8 +55,8 @@ The application uses data in the GTFS (General Transit Feed Specification) forma
 
 1.  **Clone the repository:**
     ```bash
-    git clone <repository_URL>
-    cd <repository_folder_name>
+    git clone https://github.com/prikol4ik/challenge-RMK
+    cd challenge-RMK
     ```
 
 2.  **Create and activate a virtual environment (recommended):**
